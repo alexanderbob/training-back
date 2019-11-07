@@ -17,14 +17,18 @@ using Microsoft.AspNetCore.Authentication.Google;
 using System.Text.Json;
 using Alebob.Training.Converters;
 using Alebob.Training.DataLayer;
+using System.Net;
 
 namespace Alebob.Training
 {
     public class Startup
     {
+        private string frontIndexUrl;
         public Startup(IConfiguration configuration)
         {
             Configuration = configuration;
+            IConfigurationSection section = Configuration.GetSection("Application");
+            frontIndexUrl = section["frontAddress"];
         }
 
         public IConfiguration Configuration { get; }
@@ -45,15 +49,42 @@ namespace Alebob.Training
 
                     options.ClientId = googleAuthNSection["ClientId"];
                     options.ClientSecret = googleAuthNSection["ClientSecret"];
+                    options.Events.OnRedirectToAuthorizationEndpoint = (context) =>
+                    {
+                        context.Response.Headers["location"] = context.RedirectUri;
+                        context.Response.StatusCode = (int)HttpStatusCode.Unauthorized;
+                        return Task.CompletedTask;
+                    };
+                    options.Events.OnCreatingTicket = (context) =>
+                    {
+                        context.Properties.RedirectUri = frontIndexUrl;
+                        return Task.CompletedTask;
+                    };
                 });
             services
                 .AddControllers()
-                .AddJsonOptions(options => {
+                .AddJsonOptions(options =>
+                {
                     options.JsonSerializerOptions.Converters.Add(new DateTimeConverter());
 #if DEBUG
                     options.JsonSerializerOptions.WriteIndented = true;
 #endif
                 });
+                
+            services.AddCors(setup =>
+            {
+                setup.AddDefaultPolicy(builder =>
+                {
+                    builder
+                        .SetIsOriginAllowed(origin => {
+                            return origin.Contains(frontIndexUrl, StringComparison.OrdinalIgnoreCase);
+                        })
+                        .AllowAnyHeader()
+                        .WithExposedHeaders("location")
+                        .AllowAnyMethod()
+                        .AllowCredentials();
+                });
+            });
 
             services.AddSingleton(typeof(IHistoryProvider), typeof(HistoryProvider));
             services.AddSingleton(typeof(IExerciseProvider), typeof(ExerciseProvider));
@@ -66,14 +97,14 @@ namespace Alebob.Training
             {
                 app.UseDeveloperExceptionPage();
             }
-
+            app.UseCors();
             app.UseHttpsRedirection();
-
+            
             app.UseRouting();
 
             app.UseAuthentication();
             app.UseAuthorization();
-
+            
             app.UseEndpoints(endpoints =>
             {
                 endpoints.MapControllers();

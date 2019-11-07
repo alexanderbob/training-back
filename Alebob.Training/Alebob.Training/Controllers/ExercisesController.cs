@@ -30,9 +30,24 @@ namespace Alebob.Training.Controllers
         }
 
         [HttpGet("/api/[controller]/{isoDate}")]
-        public Dictionary<string, ExerciseEntry> Exercises([FromRoute] string isoDate)
+        public ActionResult Exercises([FromRoute] string isoDate)
         {
-            return _exerciseProvider.GetExercises(isoDate);
+            try
+            {
+                return Ok(_exerciseProvider.GetExercises(isoDate));
+            }
+            catch (Exception exc)
+            {
+                if (exc is KeyNotFoundException)
+                {
+                    return NotFound();
+                }
+                if (exc is FormatException || exc is ArgumentNullException)
+                {
+                    return BadRequest();
+                }
+                throw exc;
+            }
         }
 
         [HttpPost("/api/[controller]/{isoDate}/{exerciseCode}")]

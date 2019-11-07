@@ -1,16 +1,24 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 
 namespace Alebob.Training.Models
 {
     public class ExerciseSetData
     {
-        public int Repetitions {get; set;}
-        public float Weight { get; set; }
+        [JsonPropertyName("repetitions")]
+        public int Repetitions { get; set; }
 
-        public ExerciseSetData(float weight, int reps)
+        [JsonPropertyName("weight")]
+        public double Weight { get; set; }
+
+        public ExerciseSetData()
+        {
+
+        }
+        public ExerciseSetData(double weight, int reps)
         {
             Weight = weight;
             Repetitions = reps;

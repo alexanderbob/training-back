@@ -18,14 +18,17 @@ namespace Alebob.Training.Controllers
     {
         private ILogger<TrainingController> _logger;
         private IHistoryProvider _historyEntries;
+        private IExerciseProvider _exercisesProvider;
 
         public TrainingController(
             ILogger<TrainingController> logger,
-            IHistoryProvider historyEntries
+            IHistoryProvider historyEntries,
+            IExerciseProvider exerciseProvider
         )
         {
             _logger = logger;
             _historyEntries = historyEntries;
+            _exercisesProvider = exerciseProvider;
         }
 
         [HttpGet]
@@ -38,6 +41,7 @@ namespace Alebob.Training.Controllers
         public ActionResult Post(HistoryEntry entry)
         {
             _historyEntries.PutEntry(entry);
+            _exercisesProvider.AllocateTrainingDay(entry.Date.ToString("yyyy-MM-dd"));
             return Ok();
         }
     }

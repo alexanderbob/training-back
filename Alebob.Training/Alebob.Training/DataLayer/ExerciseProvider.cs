@@ -20,7 +20,7 @@ namespace Alebob.Training.DataLayer
                 new ExerciseMetadata("deadlift", "Dead Lift"),
                 new ExerciseMetadata("benchpress", "Bench Press"),
                 new ExerciseMetadata("legpress", "Leg Press"),
-                new ExerciseMetadata("longpull", "Long Bull"),
+                new ExerciseMetadata("longpull", "Long Pull"),
                 new ExerciseMetadata("frenchpress", "French Press"),
                 new ExerciseMetadata("bicepsbench", "Biceps Bench"),
                 new ExerciseMetadata("bicepsdumbbell", "Biceps Dumbbell"),
@@ -42,7 +42,7 @@ namespace Alebob.Training.DataLayer
                     for (int j = 0; j < sets; j++)
                     {
                         setsData[j] = new ExerciseSetData(
-                            (float)(100 * random.NextDouble()), 
+                            Math.Round(100 * random.NextDouble(), 1),
                             random.Next(1, 20)
                         );
                     }
@@ -62,9 +62,8 @@ namespace Alebob.Training.DataLayer
 
         public Dictionary<string, ExerciseEntry> GetExercises(string isoDate)
         {
-            Dictionary<string, ExerciseEntry> entry = null;
-            _exerciseHistory.TryGetValue(isoDate, out entry);
-            return entry;
+            DateTime.ParseExact(isoDate, "yyyy-MM-dd", null);
+            return _exerciseHistory[isoDate];
         }
 
         public ExerciseEntry SetExercise(string isoDate, string exerciseCode, IEnumerable<ExerciseSetData> setsData)
@@ -85,6 +84,15 @@ namespace Alebob.Training.DataLayer
             };
             _exerciseHistory[isoDate][exerciseCode] = entry;
             return entry;
+        }
+
+        public void AllocateTrainingDay(string isoDate)
+        {
+            if (_exerciseHistory.ContainsKey(isoDate))
+            {
+                throw new ArgumentException($"Training date {isoDate} is already created", nameof(isoDate));
+            }
+            _exerciseHistory[isoDate] = new Dictionary<string, ExerciseEntry>();
         }
     }
 }

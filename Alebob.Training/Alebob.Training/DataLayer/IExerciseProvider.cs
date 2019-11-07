@@ -11,5 +11,6 @@ namespace Alebob.Training.DataLayer
         IEnumerable<ExerciseMetadata> GetAvailableExercises();
         Dictionary<string, ExerciseEntry> GetExercises(string isoDate);
         ExerciseEntry SetExercise(string isoDate, string exerciseCode, IEnumerable<ExerciseSetData> entry);
+        void AllocateTrainingDay(string isoDate);
     }
 }
