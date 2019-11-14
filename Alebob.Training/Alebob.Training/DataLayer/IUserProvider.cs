@@ -6,8 +6,9 @@ using System.Threading.Tasks;
 
 namespace Alebob.Training.DataLayer
 {
-    public interface IExerciseProvider
+    public interface IUserProvider
     {
-        Task<IEnumerable<ExerciseMetadata>> GetExercises();
+        Task<User> FindUser(string email);
+        Task<User> UpsertUser(string email, string displayName);
     }
 }

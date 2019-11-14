@@ -3,7 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Alebob.Training.DataLayer;
-using Alebob.Training.Models;
+using Alebob.Training.OAuth;
+using Alebob.Training.ViewModels;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -17,7 +18,7 @@ namespace Alebob.Training.Controllers
     public class TrainingController : ControllerBase
     {
         private ILogger<TrainingController> _logger;
-        private IHistoryProvider _historyEntries;
+        private IHistoryProvider _historyProvider;
         private IExerciseProvider _exercisesProvider;
 
         public TrainingController(
@@ -27,21 +28,37 @@ namespace Alebob.Training.Controllers
         )
         {
             _logger = logger;
-            _historyEntries = historyEntries;
+            _historyProvider = historyEntries;
             _exercisesProvider = exerciseProvider;
         }
 
         [HttpGet]
-        public IEnumerable<HistoryEntry> Get()
+        public async Task<IEnumerable<HistoryEntry>> Get()
         {
-            return _historyEntries.GetHistory().Values;
+            return (await _historyProvider
+                .GetHistory(User.FindFirst(Claims.UserId).Value, 15)
+                .ConfigureAwait(false))
+                .Select(x => x.Value.AsViewModel())
+                .ToList();
+        }
+
+        [HttpGet("/api/[controller]/range/from/{startIsoDate}/to/{endIsoDate}")]
+        public async Task<IEnumerable<HistoryEntry>> Range([FromRoute] string startIsoDate, [FromRoute] string endIsoDate)
+        {
+            return (await _historyProvider
+                .GetHistory(User.FindFirst(Claims.UserId).Value, startIsoDate, endIsoDate)
+                .ConfigureAwait(false))
+                .Select(x => x.Value.AsViewModel())
+                .ToList();
         }
 
         [HttpPost]
-        public ActionResult Post(HistoryEntry entry)
+        public async Task<ActionResult> Post(HistoryEntry entry)
         {
-            _historyEntries.PutEntry(entry);
-            _exercisesProvider.AllocateTrainingDay(entry.Date.ToString("yyyy-MM-dd"));
+            var key = new DataLayer.Models.TrainingDayKey(
+                User.FindFirst(Claims.UserId).Value, entry.IsoDate
+            );
+            await _historyProvider.AllocateEntry(key, entry.Title, entry.SubTitle).ConfigureAwait(false);
             return Ok();
         }
     }

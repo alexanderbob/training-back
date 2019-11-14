@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 
-namespace Alebob.Training.Models
+namespace Alebob.Training.ViewModels
 {
     public class ExerciseEntry
     {

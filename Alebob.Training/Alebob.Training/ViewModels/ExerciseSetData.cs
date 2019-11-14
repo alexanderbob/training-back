@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 
-namespace Alebob.Training.Models
+namespace Alebob.Training.ViewModels
 {
     public class ExerciseSetData
     {

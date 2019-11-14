@@ -18,6 +18,9 @@ using System.Text.Json;
 using Alebob.Training.Converters;
 using Alebob.Training.DataLayer;
 using System.Net;
+using Alebob.Training.ViewModels;
+using Microsoft.Extensions.Options;
+using Alebob.Training.DataLayer.Services;
 
 namespace Alebob.Training
 {
@@ -49,17 +52,7 @@ namespace Alebob.Training
 
                     options.ClientId = googleAuthNSection["ClientId"];
                     options.ClientSecret = googleAuthNSection["ClientSecret"];
-                    options.Events.OnRedirectToAuthorizationEndpoint = (context) =>
-                    {
-                        context.Response.Headers["location"] = context.RedirectUri;
-                        context.Response.StatusCode = (int)HttpStatusCode.Unauthorized;
-                        return Task.CompletedTask;
-                    };
-                    options.Events.OnCreatingTicket = (context) =>
-                    {
-                        context.Properties.RedirectUri = frontIndexUrl;
-                        return Task.CompletedTask;
-                    };
+                    options.EventsType = typeof(OAuth.GoogleAuthEventsHandler);
                 });
             services
                 .AddControllers()
@@ -86,8 +79,13 @@ namespace Alebob.Training
                 });
             });
 
-            services.AddSingleton(typeof(IHistoryProvider), typeof(HistoryProvider));
-            services.AddSingleton(typeof(IExerciseProvider), typeof(ExerciseProvider));
+            services.Configure<DatabaseSettings>(Configuration.GetSection(nameof(DatabaseSettings)));
+            services.AddSingleton<OAuth.GoogleAuthEventsHandler>();
+            services.AddSingleton(typeof(IHistoryProvider), typeof(HistoryService));
+            services.AddSingleton(typeof(IUserProvider), typeof(UsersService));
+            services.AddSingleton(typeof(IExerciseProvider), typeof(ExercisesService));
+            services.AddSingleton<IDatabaseSettings>(sp => sp.GetRequiredService<IOptions<DatabaseSettings>>().Value);
+            services.AddSingleton<HistoryService>();
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.

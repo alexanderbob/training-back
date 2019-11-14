@@ -1,5 +1,7 @@
 ﻿using Alebob.Training.DataLayer;
-using Alebob.Training.Models;
+using Alebob.Training.DataLayer.Models;
+using Alebob.Training.OAuth;
+using Alebob.Training.ViewModels;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
@@ -16,25 +18,34 @@ namespace Alebob.Training.Controllers
     public class ExercisesController : ControllerBase
     {
         private ILogger<ExercisesController> _logger;
+        private IHistoryProvider _historyProvider;
         private IExerciseProvider _exerciseProvider;
-        public ExercisesController(ILogger<ExercisesController> logger, IExerciseProvider dataProvider)
+        public ExercisesController(ILogger<ExercisesController> logger, IHistoryProvider dataProvider, IExerciseProvider exerciseProvider)
         {
             _logger = logger;
-            _exerciseProvider = dataProvider;
+            _historyProvider = dataProvider;
+            _exerciseProvider = exerciseProvider;
         }
 
         [HttpGet("/api/[controller]/list")]
-        public IEnumerable<ExerciseMetadata> AvailableExercises()
+        public async Task<IEnumerable<ViewModels.ExerciseMetadata>> AvailableExercises()
         {
-            return _exerciseProvider.GetAvailableExercises();
+            return (await _exerciseProvider.GetExercises().ConfigureAwait(false))
+                .Select(x => x.AsViewModel());
         }
 
         [HttpGet("/api/[controller]/{isoDate}")]
-        public ActionResult Exercises([FromRoute] string isoDate)
+        public async Task<ActionResult> Exercises([FromRoute] string isoDate)
         {
             try
             {
-                return Ok(_exerciseProvider.GetExercises(isoDate));
+                var key = new TrainingDayKey(User.FindFirst(Claims.UserId).Value, isoDate);
+                //TODO: return dictionary from IExerciseProvider
+                var exercises = 
+                    (await _exerciseProvider.GetExercises().ConfigureAwait(false))
+                    .ToDictionary(x => x.Code, y => y.AsViewModel());
+                var entry = await _historyProvider.GetEntry(key).ConfigureAwait(false);
+                return Ok(entry.AsViewModel(exercises));
             }
             catch (Exception exc)
             {
@@ -51,11 +62,12 @@ namespace Alebob.Training.Controllers
         }
 
         [HttpPost("/api/[controller]/{isoDate}/{exerciseCode}")]
-        public ActionResult SetExercise([FromRoute] string isoDate, [FromRoute] string exerciseCode, [FromBody] IEnumerable<ExerciseSetData> setsData)
+        public async Task<ActionResult> SetExercise([FromRoute] string isoDate, [FromRoute] string exerciseCode, [FromBody] IEnumerable<ViewModels.ExerciseSetData> setsData)
         {
             try
             {
-                _exerciseProvider.SetExercise(isoDate, exerciseCode, setsData);
+                var key = new TrainingDayKey(User.FindFirst(Claims.UserId).Value, isoDate);
+                await _historyProvider.UpsertExercise(key, exerciseCode, setsData.Select(x => x.AsDataModel())).ConfigureAwait(false);
             }
             catch (ArgumentException exc)
             {
