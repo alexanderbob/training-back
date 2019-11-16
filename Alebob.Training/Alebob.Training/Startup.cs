@@ -1,26 +1,18 @@
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.HttpsPolicy;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Authentication;
-using Microsoft.AspNetCore.Authentication.AzureAD.UI;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.Google;
-using System.Text.Json;
 using Alebob.Training.Converters;
 using Alebob.Training.DataLayer;
-using System.Net;
-using Alebob.Training.ViewModels;
 using Microsoft.Extensions.Options;
 using Alebob.Training.DataLayer.Services;
+using Microsoft.Extensions.FileProviders;
+using System.IO;
+using Microsoft.AspNetCore.Http;
 
 namespace Alebob.Training
 {
@@ -30,8 +22,7 @@ namespace Alebob.Training
         public Startup(IConfiguration configuration)
         {
             Configuration = configuration;
-            IConfigurationSection section = Configuration.GetSection("Application");
-            frontIndexUrl = section["frontAddress"];
+            frontIndexUrl = configuration.GetValue<string>("Application:frontAddress");
         }
 
         public IConfiguration Configuration { get; }
@@ -70,7 +61,12 @@ namespace Alebob.Training
                 {
                     builder
                         .SetIsOriginAllowed(origin => {
-                            return origin.Contains(frontIndexUrl, StringComparison.OrdinalIgnoreCase);
+                            Uri originUri = new Uri(origin),
+                                frontUri = new Uri(frontIndexUrl);
+                            return Uri.Compare(originUri, frontUri,
+                                UriComponents.HostAndPort,
+                                UriFormat.UriEscaped,
+                                StringComparison.OrdinalIgnoreCase) == 0;
                         })
                         .AllowAnyHeader()
                         .WithExposedHeaders("location")
@@ -97,16 +93,35 @@ namespace Alebob.Training
             }
             app.UseCors();
             app.UseHttpsRedirection();
-            
+
             app.UseRouting();
 
             app.UseAuthentication();
             app.UseAuthorization();
-            
+
             app.UseEndpoints(endpoints =>
             {
                 endpoints.MapControllers();
+                endpoints.MapFallbackToController("Get", "Index");
             });
+
+            if (!env.IsDevelopment())
+            {
+                app.UseDefaultFiles(new DefaultFilesOptions
+                {
+                    FileProvider = new PhysicalFileProvider(Path.Combine(Directory.GetCurrentDirectory(), "Content")),
+                    RequestPath = ""
+                });
+                app.UseStaticFiles(new StaticFileOptions
+                {
+                    FileProvider = new PhysicalFileProvider(Path.Combine(Directory.GetCurrentDirectory(), "Content")),
+                    RequestPath = "",
+                    OnPrepareResponse = ctx =>
+                    {
+                        ctx.Context.Response.Headers.Append("Cache-Control", $"public, max-age=600");
+                    }
+                });
+            }
         }
     }
 }

@@ -328,3 +328,6 @@ ASALocalRun/
 
 # MFractors (Xamarin productivity tool) working folder 
 .mfractor/
+# Adding Content folder into ignore because it is populated
+# by deployment pipeline separately - our project is not relying on it
+/Alebob.Training/Alebob.Training/Content
