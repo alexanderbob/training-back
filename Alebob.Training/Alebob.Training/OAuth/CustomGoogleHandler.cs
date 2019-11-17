@@ -20,15 +20,16 @@ namespace Alebob.Training.OAuth
             isProduction = !env.IsDevelopment();
         }
 
-        //we are using kestel on HTTP with nginx as proxy server on HTTPS
-        //unfortunately, BuildRedirectUri puts http as Scheme, because
-        //request was proxied by nginx
+        // we are using kestel on HTTP with nginx as proxy server on HTTPS
+        // unfortunately, BuildRedirectUri puts http as Scheme, because
+        // request was proxied by nginx
         protected override string BuildChallengeUrl(AuthenticationProperties properties, string redirectUri)
         {
             if (isProduction)
             {
                 UriBuilder ub = new UriBuilder(redirectUri);
                 ub.Scheme = "https";
+                ub.Port = -1;
                 redirectUri = ub.ToString();
             }
             return base.BuildChallengeUrl(properties, redirectUri);
