@@ -5,7 +5,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.AspNetCore.Authentication.Cookies;
-using Microsoft.AspNetCore.Authentication.Google;
+using Alebob.Training.OAuth;
 using Alebob.Training.Converters;
 using Alebob.Training.DataLayer;
 using Microsoft.Extensions.Options;
@@ -33,17 +33,17 @@ namespace Alebob.Training
             services.AddAuthentication(options =>
                 {
                     options.DefaultScheme = CookieAuthenticationDefaults.AuthenticationScheme;
-                    options.DefaultChallengeScheme = GoogleDefaults.AuthenticationScheme;
+                    options.DefaultChallengeScheme = Microsoft.AspNetCore.Authentication.Google.GoogleDefaults.AuthenticationScheme;
                 })
                 .AddCookie()
-                .AddGoogle(options =>
+                .AddCustomGoogle(options =>
                 {
                     IConfigurationSection googleAuthNSection =
                         Configuration.GetSection("Google");
 
                     options.ClientId = googleAuthNSection["ClientId"];
                     options.ClientSecret = googleAuthNSection["ClientSecret"];
-                    options.EventsType = typeof(OAuth.GoogleAuthEventsHandler);
+                    options.EventsType = typeof(GoogleAuthEventsHandler);
                 });
             services
                 .AddControllers()
@@ -76,7 +76,7 @@ namespace Alebob.Training
             });
 
             services.Configure<DatabaseSettings>(Configuration.GetSection(nameof(DatabaseSettings)));
-            services.AddSingleton<OAuth.GoogleAuthEventsHandler>();
+            services.AddSingleton<GoogleAuthEventsHandler>();
             services.AddSingleton(typeof(IHistoryProvider), typeof(HistoryService));
             services.AddSingleton(typeof(IUserProvider), typeof(UsersService));
             services.AddSingleton(typeof(IExerciseProvider), typeof(ExercisesService));
