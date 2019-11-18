@@ -44,6 +44,25 @@ namespace Alebob.Training.DataLayer.Services
             return doc;
         }
 
+        public async Task<long> UpdateEntry(TrainingDayKey key, string name, string description)
+        {
+            ValidateKey(key);
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                throw new ArgumentNullException(nameof(name));
+            }
+            if (description == null)
+            {
+                throw new ArgumentNullException(nameof(description));
+            }
+            var filter = Builders<TrainingDay>.Filter.Eq(x => x.Id, key);
+            var update = Builders<TrainingDay>.Update
+                .Set(x => x.Name, name)
+                .Set(x => x.Description, description);
+            var result = await _historyEntries.UpdateOneAsync(filter, update).ConfigureAwait(false);
+            return result.ModifiedCount;
+        }
+
         public async Task<TrainingDay> GetEntry(TrainingDayKey key)
         {
             var filter = Builders<TrainingDay>.Filter.Eq(x => x.Id, key);
