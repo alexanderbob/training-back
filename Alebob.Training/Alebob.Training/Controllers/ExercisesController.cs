@@ -34,6 +34,17 @@ namespace Alebob.Training.Controllers
                 .Select(x => x.AsViewModel());
         }
 
+        [HttpGet("/api/[controller]/history/{exerciseCode}")]
+        public async Task<IEnumerable<ViewModels.ExerciseHistoricalItem>> History([FromRoute] string exerciseCode)
+        {
+            var userId = User.FindFirst(Claims.UserId).Value;
+            return (
+                await _historyProvider
+                        .GetHistory(userId, exerciseCode)
+                        .ConfigureAwait(false)
+            ).Select(x => x.AsViewModel());
+        }
+
         [HttpGet("/api/[controller]/{isoDate}")]
         public async Task<ActionResult> Exercises([FromRoute] string isoDate)
         {

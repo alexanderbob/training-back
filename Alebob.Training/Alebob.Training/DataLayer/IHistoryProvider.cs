@@ -1,4 +1,5 @@
 ﻿using Alebob.Training.DataLayer.Models;
+using Alebob.Training.DataLayer.Models.TimeSeries;
 using MongoDB.Bson;
 using System;
 using System.Collections.Generic;
@@ -9,6 +10,7 @@ namespace Alebob.Training.DataLayer
 {
     public interface IHistoryProvider
     {
+        public Task<IEnumerable<ExerciseHistoricalItem>> GetHistory(string userId, string exerciseCode);
         public Task<Dictionary<string, TrainingDayMetadata>> GetHistory(string userId, int limit);
         public Task<Dictionary<string, TrainingDayMetadata>> GetHistory(string userId, string isoStartDate, string isoEndDate);
         public Task<TrainingDay> GetEntry(TrainingDayKey key);

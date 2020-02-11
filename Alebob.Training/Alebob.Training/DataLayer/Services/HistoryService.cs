@@ -1,9 +1,14 @@
 ﻿using Alebob.Training.DataLayer.Models;
+using Alebob.Training.DataLayer.Models.TimeSeries;
+using Microsoft.Extensions.Logging;
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization;
 using MongoDB.Driver;
+using MongoDB.Driver.Core.Configuration;
+using MongoDB.Driver.Core.Events;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
@@ -14,9 +19,16 @@ namespace Alebob.Training.DataLayer.Services
     {
         private readonly IMongoCollection<TrainingDay> _historyEntries;
 
-        public HistoryService(IDatabaseSettings settings)
+        public HistoryService(ILogger<IHistoryProvider> logger, IDatabaseSettings settings)
         {
-            var client = new MongoClient(settings.ConnectionString);
+            var mongoConnectionUrl = new MongoUrl(settings.ConnectionString);
+            var mongoClientSettings = MongoClientSettings.FromUrl(mongoConnectionUrl);
+            mongoClientSettings.ClusterConfigurator = cb => {
+                cb.Subscribe<CommandStartedEvent>(e => {
+                    logger.LogDebug($"{e.CommandName} - {e.Command.ToJson()}");
+                });
+            };
+            var client = new MongoClient(mongoClientSettings);
             var database = client.GetDatabase(settings.DatabaseName);
 
             _historyEntries = database.GetCollection<TrainingDay>(settings.TrainingCollectionName);
@@ -131,6 +143,74 @@ namespace Alebob.Training.DataLayer.Services
                     IsUpsert = true
                 }).ConfigureAwait(false);
             return result.ModifiedCount;
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="exerciseCode">This argument is passed as is into MongoDB query without any escaping mechanism</param>
+        /// <returns></returns>
+        public async Task<IEnumerable<ExerciseHistoricalItem>> GetHistory(string userId, string exerciseCode)
+        {
+            if (string.IsNullOrWhiteSpace(exerciseCode))
+            {
+                throw new ArgumentNullException(nameof(exerciseCode));
+            }
+
+            var map = new BsonJavaScript($@"
+function() {{
+    for (var i = 0; i < this.{Const.TrainingExerciseKey}.{exerciseCode}.length; i++) {{
+        emit(this['_id'].date, this.{Const.TrainingExerciseKey}.{exerciseCode}[i])
+    }}
+}}");
+
+            var reduce = new BsonJavaScript(@"
+function(key, values) {
+    var maxWeight = 0,
+        minWeight = Number.MAX_SAFE_INTEGER,
+        maxReps = 0,
+        minReps = Number.MAX_SAFE_INTEGER,
+        totalWeight = 0,
+        totalReps = 0,
+        tonnage = 0;
+    for (var i = 0; i < values.length; i++) {
+        maxReps = Math.max(maxReps, values[i].repetitions);
+        minReps = Math.min(minReps, values[i].repetitions);
+        maxWeight = Math.max(maxWeight, values[i].weight);
+        minWeight = Math.min(minWeight, values[i].weight);
+        totalWeight += +values[i].weight;
+        totalReps += +values[i].repetitions;
+        tonnage += values[i].repetitions * values[i].weight;
+    }
+    return {
+        weight: {
+            min: minWeight,
+            max: maxWeight,
+            avg: totalWeight / values.length
+        },
+        tonnage: tonnage,
+        reps: {
+            min: minReps,
+            max: maxReps,
+            avg: totalReps / values.length
+        }
+    };
+};");
+
+            var fb = Builders<TrainingDay>.Filter;
+
+            var options = new MapReduceOptions<TrainingDay, ExerciseHistoricalItem>
+            {
+                Filter = fb.And(
+                    fb.Eq(x => x.Id.UserId, userId),
+                    fb.Exists($"{Const.TrainingExerciseKey}.{exerciseCode}")
+                ),
+                OutputOptions = MapReduceOutputOptions.Inline
+            };
+            
+            var mr = _historyEntries.MapReduce(map, reduce, options);
+            var res = await mr.ToListAsync().ConfigureAwait(false);
+            return res;
         }
 
         private void ValidateKey(TrainingDayKey key)

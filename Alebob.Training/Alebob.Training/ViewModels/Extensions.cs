@@ -35,6 +35,18 @@ namespace Alebob.Training.ViewModels
             return new ExerciseMetadata(metadata.Code, metadata.Description);
         }
 
+        public static ExerciseHistoricalItem AsViewModel(this DataLayer.Models.TimeSeries.ExerciseHistoricalItem item)
+        {
+            var data = item.Value;
+            return new ExerciseHistoricalItem
+            {
+                Date = item.Observation,
+                Repetitions = new MinMaxAvgItem(data.Repetitions.Min, data.Repetitions.Max, data.Repetitions.Average),
+                Tonnage = data.Tonnage,
+                Weight = new MinMaxAvgItem(data.Weight.Min, data.Weight.Max, data.Weight.Average)
+            };
+        }
+
         public static DataLayer.Models.ExerciseSetData AsDataModel(this ViewModels.ExerciseSetData setData)
         {
             return new DataLayer.Models.ExerciseSetData(Convert.ToDecimal(setData.Weight), setData.Repetitions);
